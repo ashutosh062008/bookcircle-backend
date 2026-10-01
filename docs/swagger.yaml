@@ -1,0 +1,362 @@
+openapi: 3.0.3
+info:
+  title: BookCircle API
+  version: 1.0.0
+  description: Backend for the Book Club Organizer (Node.js, Express, MongoDB, Firebase, Socket.io)
+servers:
+  - url: http://localhost:5000
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+security:
+  - bearerAuth: []
+tags:
+  - { name: Auth }
+  - { name: Clubs }
+  - { name: Books }
+  - { name: Votes }
+  - { name: Progress }
+  - { name: Meetings }
+  - { name: Notifications }
+  - { name: Quotes }
+paths:
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name: { type: string, example: Ashutosh }
+                email: { type: string, example: ashu@example.com }
+                password: { type: string, example: secret123 }
+      responses:
+        '201': { description: User created, returns JWT }
+        '409': { description: Email already registered }
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string }
+                password: { type: string }
+      responses:
+        '200': { description: Returns JWT }
+        '401': { description: Invalid credentials }
+  /api/auth/firebase:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Exchange a Firebase ID token for a BookCircle JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [idToken]
+              properties:
+                idToken: { type: string }
+      responses:
+        '200': { description: Returns JWT }
+        '503': { description: Firebase not configured }
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: Current user
+      responses:
+        '200': { description: OK }
+  /api/auth/fcm-token:
+    put:
+      tags: [Auth]
+      summary: Save device FCM token for push notifications
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fcmToken]
+              properties:
+                fcmToken: { type: string }
+      responses:
+        '200': { description: Saved }
+  /api/clubs:
+    get:
+      tags: [Clubs]
+      summary: List clubs (use ?mine=true for your clubs)
+      responses:
+        '200': { description: OK }
+    post:
+      tags: [Clubs]
+      summary: Create a club
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, example: Sci-Fi Readers }
+                description: { type: string }
+      responses:
+        '201': { description: Created }
+  /api/clubs/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [Clubs]
+      summary: Get a club
+      responses:
+        '200': { description: OK }
+        '404': { description: Not found }
+    put:
+      tags: [Clubs]
+      summary: Update a club (owner only)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                description: { type: string }
+      responses:
+        '200': { description: Updated }
+        '403': { description: Not owner }
+    delete:
+      tags: [Clubs]
+      summary: Delete a club (owner only)
+      responses:
+        '200': { description: Deleted }
+  /api/clubs/{id}/join:
+    post:
+      tags: [Clubs]
+      summary: Join a club
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Joined }
+  /api/clubs/{id}/leave:
+    post:
+      tags: [Clubs]
+      summary: Leave a club
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Left }
+  /api/clubs/{id}/messages:
+    get:
+      tags: [Clubs]
+      summary: Chat history for a club (members only)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, default: 50 } }
+      responses:
+        '200': { description: OK }
+  /api/books:
+    get:
+      tags: [Books]
+      summary: List books (filter with ?club=<id>&q=<text>)
+      responses:
+        '200': { description: OK }
+    post:
+      tags: [Books]
+      summary: Add a book
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, author]
+              properties:
+                title: { type: string, example: Dune }
+                author: { type: string, example: Frank Herbert }
+                description: { type: string }
+                totalPages: { type: integer, example: 412 }
+                club: { type: string }
+      responses:
+        '201': { description: Created }
+  /api/books/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [Books]
+      summary: Get a book
+      responses:
+        '200': { description: OK }
+    put:
+      tags: [Books]
+      summary: Update a book
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                author: { type: string }
+                description: { type: string }
+                totalPages: { type: integer }
+      responses:
+        '200': { description: Updated }
+    delete:
+      tags: [Books]
+      summary: Delete a book
+      responses:
+        '200': { description: Deleted }
+  /api/votes:
+    post:
+      tags: [Votes]
+      summary: Vote for a book (one vote per user per book)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [book]
+              properties:
+                book: { type: string }
+      responses:
+        '201': { description: Vote recorded }
+        '409': { description: Already voted }
+    get:
+      tags: [Votes]
+      summary: Vote leaderboard (?club=<id> optional)
+      responses:
+        '200': { description: OK }
+  /api/votes/book/{id}:
+    get:
+      tags: [Votes]
+      summary: Votes for one book
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: OK }
+  /api/progress:
+    post:
+      tags: [Progress]
+      summary: Record/update reading progress
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [book, pagesRead]
+              properties:
+                book: { type: string }
+                pagesRead: { type: integer, example: 120 }
+      responses:
+        '201': { description: Saved }
+    get:
+      tags: [Progress]
+      summary: All progress records (?book=<id> optional)
+      responses:
+        '200': { description: OK }
+  /api/progress/user/{id}:
+    get:
+      tags: [Progress]
+      summary: Progress of one user
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: OK }
+  /api/meetings:
+    post:
+      tags: [Meetings]
+      summary: Schedule a meeting (notifies club members)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [club, title, scheduledAt]
+              properties:
+                club: { type: string }
+                book: { type: string }
+                title: { type: string, example: Discuss chapters 1-5 }
+                agenda: { type: string }
+                location: { type: string, example: Google Meet }
+                scheduledAt: { type: string, format: date-time }
+      responses:
+        '201': { description: Created }
+    get:
+      tags: [Meetings]
+      summary: List meetings (?upcoming=true)
+      responses:
+        '200': { description: OK }
+  /api/meetings/club/{id}:
+    get:
+      tags: [Meetings]
+      summary: Meetings of one club
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: OK }
+  /api/notifications/send:
+    post:
+      tags: [Notifications]
+      summary: Send a Firebase push notification to a club or list of users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, body]
+              properties:
+                title: { type: string }
+                body: { type: string }
+                clubId: { type: string }
+                userIds: { type: array, items: { type: string } }
+      responses:
+        '200': { description: Processed }
+  /api/quotes:
+    post:
+      tags: [Quotes]
+      summary: Save a favourite quote from a book
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [book, text]
+              properties:
+                book: { type: string }
+                text: { type: string }
+                page: { type: integer }
+      responses:
+        '201': { description: Created }
+    get:
+      tags: [Quotes]
+      summary: List quotes (?book=<id>)
+      responses:
+        '200': { description: OK }
+  /api/quotes/{id}:
+    delete:
+      tags: [Quotes]
+      summary: Delete your quote
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Deleted }
