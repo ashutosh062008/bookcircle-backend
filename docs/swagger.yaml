@@ -4,7 +4,10 @@ info:
   version: 1.0.0
   description: Backend for the Book Club Organizer (Node.js, Express, MongoDB, Firebase, Socket.io)
 servers:
+  - url: https://bookcircle-backend.onrender.com
+    description: Live (Render)
   - url: http://localhost:5000
+    description: Local
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
